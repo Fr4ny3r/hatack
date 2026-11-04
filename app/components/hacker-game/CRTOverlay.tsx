@@ -1,0 +1,1 @@
+export const CRTOverlay = () => <div className="crt-overlay"></div>;
