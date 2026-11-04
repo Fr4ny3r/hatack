@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NetworkCommand, Exploit, CommandType } from './types/game';
 import { evaluateHand } from './lib/evaluator';
 
@@ -28,10 +28,12 @@ const COMMAND_TYPES: CommandTemplate[] = [
 ];
 
 function generateBuffer(count = 8): NetworkCommand[] {
+  if (!COMMAND_TYPES || COMMAND_TYPES.length === 0) return [];
+
   return Array.from({ length: count }).map((_, i) => {
-    // Forzamos el tipado para que TypeScript no se queje del índice aleatorio
-    const randomCmd = COMMAND_TYPES[Math.floor(Math.random() * COMMAND_TYPES.length)] as CommandTemplate;
-    
+    const randomIndex = Math.floor(Math.random() * COMMAND_TYPES.length);
+    const randomCmd = COMMAND_TYPES[randomIndex];
+
     return {
       id: `cmd_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 9)}`,
       type: randomCmd.type,
@@ -43,8 +45,7 @@ function generateBuffer(count = 8): NetworkCommand[] {
   });
 }
 
-
-export default function page() {
+export default function Page() {
   const [nodeLevel] = useState(1);
   const [targetScore] = useState(2500);
   const [currentScore, setCurrentScore] = useState(0);
@@ -62,14 +63,20 @@ export default function page() {
     { id: 'exp3', name: 'zero_day_v1', type: 'MULT_BOOST', desc: '+2.0x Protocol Mult on DDoS combinations', rarity: 'rare', icon: 'fa-skull', color: 'text-purple-400' },
   ]);
 
-  const [buffer, setBuffer] = useState<NetworkCommand[]>(() => generateBuffer(8));
+  // Inicializar el buffer vacío para evitar fallos de renderizado en el servidor (SSR)
+  const [buffer, setBuffer] = useState<NetworkCommand[]>([]);
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const [logs, setLogs] = useState<{ text: string; color: string }[]>([
     { text: '[SYS_INIT] Connected to target NODE_01. Security defenses active.', color: 'text-emerald-400' },
     { text: '[INFO] Construct a command payload in the buffer to breach encryption.', color: 'text-slate-400' },
   ]);
 
-  const selectedCmds = selectedIndices.map((i) => buffer[i]);
+  // Cargar el buffer solo en el cliente
+  useEffect(() => {
+    setBuffer(generateBuffer(8));
+  }, []);
+
+  const selectedCmds = selectedIndices.map((i) => buffer[i]).filter(Boolean);
   const combo = evaluateHand(selectedCmds, exploits);
 
   const logTerminal = (text: string, color = 'text-slate-300') => {
@@ -91,7 +98,6 @@ export default function page() {
   const handleExecute = () => {
     if (selectedIndices.length === 0 || attempts <= 0) return;
 
-    // Disparar animación de Glitch visual
     setIsGlitched(true);
     setTimeout(() => setIsGlitched(false), 200);
 
@@ -107,7 +113,6 @@ export default function page() {
       setBitcoins((prev) => prev + 10);
     }
 
-    // Reemplazar cartas jugadas
     const remainingBuffer = buffer.filter((_, idx) => !selectedIndices.includes(idx));
     const replenished = generateBuffer(selectedIndices.length);
     setBuffer([...remainingBuffer, ...replenished]);
